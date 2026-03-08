@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Building, List, PlusCircle, Settings, LogOut, LogIn, Archive, RefreshCw, Eye, Lock, Copy, Edit2, ThumbsUp, ThumbsDown, ShoppingCart } from 'lucide-react';
+import { Building, List, PlusCircle, Settings, LogOut, LogIn, Archive, RefreshCw, Eye, Lock, Copy, Edit2, ThumbsUp, ThumbsDown, ShoppingCart, User, Trash2 } from 'lucide-react';
 
 export default function CompanyView() {
   const [currentCompany, setCurrentCompany] = useState(null);
@@ -81,6 +81,17 @@ export default function CompanyView() {
     if (!error) fetchCompanyDashboard();
   };
 
+  const handleDeleteJob = async (jobId) => {
+    if (!window.confirm("Es-tu sûr de vouloir supprimer définitivement cette annonce ? Toutes les candidatures associées seront effacées.")) return;
+    
+    const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+    if (!error) {
+      fetchCompanyDashboard();
+    } else {
+      alert("Erreur lors de la suppression : " + error.message);
+    }
+  };
+
   const startEditAndRepublish = (job) => {
     setJobData({
       title: job.title, description: job.description, location: job.location,
@@ -152,6 +163,35 @@ export default function CompanyView() {
     }
   };
 
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    alert('Redirection vers la page de paiement Stripe... (Simulation)');
+
+    const ids = cart.map(item => item.id);
+    const { error } = await supabase.from('applications').update({ status: 'purchased' }).in('id', ids);
+
+    if (!error) {
+      alert('Paiement validé ! Les contacts sont débloqués.');
+      setCart([]);
+      fetchCompanyDashboard();
+      setActiveTab('dashboard');
+    } else {
+      alert('Erreur lors du déblocage.');
+    }
+  };
+
+  const handleUnlockSingle = async (applicant) => {
+    if (!window.confirm(`Confirmer le déblocage de ce profil pour 37,50 € HT ?`)) return;
+    
+    const { error } = await supabase.from('applications').update({ status: 'purchased' }).eq('id', applicant.id);
+    if (!error) {
+       alert("Profil débloqué avec succès !");
+       fetchCompanyDashboard();
+       setSelectedApplicant({...applicant, status: 'purchased'});
+       setCart(cart.filter(c => c.id !== applicant.id));
+    }
+  };
+
   if (!currentCompany) {
     return (
       <div className="max-w-md mx-auto p-8 bg-white rounded-2xl shadow mt-10 border-2 border-slate-900">
@@ -214,7 +254,7 @@ export default function CompanyView() {
                 <span>Total HT</span>
                 <span>{(cart.length * 37.5).toFixed(2).replace('.', ',')} €</span>
               </div>
-              <button onClick={() => alert('Redirection vers la page de paiement Stripe...')} className="w-full bg-green-500 text-white p-4 rounded-xl font-black border-2 border-slate-900 hover:bg-green-600 transition flex justify-center items-center mt-6">
+              <button onClick={handleCheckout} className="w-full bg-green-500 text-white p-4 rounded-xl font-black border-2 border-slate-900 hover:bg-green-600 transition flex justify-center items-center mt-6">
                 <Lock size={18} className="mr-2"/> Payer et débloquer les {cart.length} contacts
               </button>
             </div>
@@ -353,6 +393,8 @@ export default function CompanyView() {
                     ) : (
                       <button onClick={() => startEditAndRepublish(job)} className="p-2 text-blue-700 hover:bg-blue-100 rounded-lg flex items-center text-sm font-bold transition-colors border-2 border-slate-900" title="Relancer"><RefreshCw size={16} className="mr-1"/> Relancer</button>
                     )}
+                    
+                    <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-slate-900 hover:text-red-600 rounded-lg hover:bg-red-100 transition-colors border-2 border-transparent hover:border-slate-900" title="Supprimer définitivement"><Trash2 size={18}/></button>
                   </div>
                 </div>
 
@@ -366,7 +408,8 @@ export default function CompanyView() {
                       <div className="flex gap-2">
                         <button onClick={() => setFilterForJob(job.id, 'all')} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 border-slate-900 transition-colors ${currentFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>Tous</button>
                         <button onClick={() => setFilterForJob(job.id, 'pending')} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 border-slate-900 transition-colors ${currentFilter === 'pending' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>À trier</button>
-                        <button onClick={() => setFilterForJob(job.id, 'accepted')} className={`px-2 py-1 rounded-lg border-2 border-slate-900 transition-colors ${currentFilter === 'accepted' ? 'bg-green-500 text-white' : 'bg-white text-green-600 hover:bg-green-50'}`} title="Retenus"><ThumbsUp size={14}/></button>
+                        <button onClick={() => setFilterForJob(job.id, 'accepted')} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 border-slate-900 transition-colors ${currentFilter === 'accepted' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>Pré-sélectionnés</button>
+                        <button onClick={() => setFilterForJob(job.id, 'purchased')} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 border-slate-900 transition-colors ${currentFilter === 'purchased' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>Débloqués</button>
                         <button onClick={() => setFilterForJob(job.id, 'rejected')} className={`px-2 py-1 rounded-lg border-2 border-slate-900 transition-colors ${currentFilter === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-red-600 hover:bg-red-50'}`} title="Refusés"><ThumbsDown size={14}/></button>
                       </div>
                     )}
@@ -377,19 +420,26 @@ export default function CompanyView() {
                       filteredApps.map(app => (
                         <div key={app.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border-2 border-slate-900">
                           <div>
-                            <p className="font-bold text-slate-900 text-sm">Candidat de {app.city}</p>
+                            <p className="font-bold text-slate-900 text-sm">
+                              {app.status === 'purchased' ? `${app.first_name} ${app.last_name}` : `Candidat de ${app.city}`}
+                            </p>
                             <p className="text-xs text-slate-600 font-medium mb-1">Transport : {app.transport}</p>
-                            {app.status === 'accepted' && <span className="text-[10px] font-black text-green-700 bg-green-100 px-2 py-0.5 rounded border border-green-700 uppercase tracking-widest">Retenu</span>}
+                            {app.status === 'accepted' && <span className="text-[10px] font-black text-blue-700 bg-blue-100 px-2 py-0.5 rounded border border-blue-700 uppercase tracking-widest">Pré-sélection</span>}
+                            {app.status === 'purchased' && <span className="text-[10px] font-black text-green-700 bg-green-100 px-2 py-0.5 rounded border border-green-700 uppercase tracking-widest">Débloqué</span>}
                             {app.status === 'rejected' && <span className="text-[10px] font-black text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-700 uppercase tracking-widest">Refusé</span>}
                           </div>
                           
                           <div className="flex items-center gap-2">
-                            <button onClick={() => toggleAppStatus(app.id, app.status, 'accepted')} className={`p-2 rounded-xl border-2 border-slate-900 transition-colors ${app.status === 'accepted' ? 'bg-green-500 text-white' : 'bg-white text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title="Retenir">
-                              <ThumbsUp size={16}/>
-                            </button>
-                            <button onClick={() => toggleAppStatus(app.id, app.status, 'rejected')} className={`p-2 rounded-xl border-2 border-slate-900 transition-colors ${app.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title="Refuser">
-                              <ThumbsDown size={16}/>
-                            </button>
+                            {app.status !== 'purchased' && (
+                              <>
+                                <button onClick={() => toggleAppStatus(app.id, app.status, 'accepted')} className={`p-2 rounded-xl border-2 border-slate-900 transition-colors ${app.status === 'accepted' ? 'bg-blue-500 text-white' : 'bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title="Pré-sélectionner">
+                                  <ThumbsUp size={16}/>
+                                </button>
+                                <button onClick={() => toggleAppStatus(app.id, app.status, 'rejected')} className={`p-2 rounded-xl border-2 border-slate-900 transition-colors ${app.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title="Refuser">
+                                  <ThumbsDown size={16}/>
+                                </button>
+                              </>
+                            )}
                             <button onClick={() => setSelectedApplicant(app)} className="bg-white border-2 border-slate-900 text-slate-800 px-4 py-2 rounded-xl flex items-center text-sm font-bold hover:bg-blue-50 hover:text-blue-700 transition-colors">
                               <Eye size={16} className="mr-2"/> Fiche
                             </button>
@@ -410,10 +460,24 @@ export default function CompanyView() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-900">
             <div className="bg-slate-900 p-5 flex justify-between items-center text-white">
-              <h3 className="font-black flex items-center"><Lock size={18} className="mr-2"/> Profil Anonymisé</h3>
+              <h3 className="font-black flex items-center">
+                {selectedApplicant.status === 'purchased' ? (
+                  <><User size={18} className="mr-2"/> Profil Débloqué : {selectedApplicant.first_name} {selectedApplicant.last_name}</>
+                ) : (
+                  <><Lock size={18} className="mr-2"/> Profil Anonymisé</>
+                )}
+              </h3>
               <button onClick={() => setSelectedApplicant(null)} className="text-gray-400 hover:text-white"><LogOut size={20}/></button>
             </div>
             <div className="p-6 space-y-4">
+              
+              {selectedApplicant.status === 'purchased' && (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-green-50 p-4 rounded-2xl border-2 border-green-800"><p className="text-[10px] text-green-800 uppercase font-black mb-1">Téléphone</p><p className="font-bold text-sm">{selectedApplicant.phone}</p></div>
+                  <div className="bg-green-50 p-4 rounded-2xl border-2 border-green-800"><p className="text-[10px] text-green-800 uppercase font-black mb-1">Email</p><p className="font-bold text-[10px] break-all">{selectedApplicant.candidate_email}</p></div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 p-4 rounded-2xl border-2 border-slate-900"><p className="text-[10px] text-gray-500 uppercase font-black mb-1">Ville</p><p className="font-bold text-sm">{selectedApplicant.city}</p></div>
                 <div className="bg-gray-50 p-4 rounded-2xl border-2 border-slate-900"><p className="text-[10px] text-gray-500 uppercase font-black mb-1">Transport</p><p className="font-bold text-sm">{selectedApplicant.transport}</p></div>
@@ -424,19 +488,26 @@ export default function CompanyView() {
               </div>
               
               <div className="mt-6 pt-4 border-t-2 border-slate-900 flex flex-col gap-3">
-                <div className="flex justify-center gap-4 mb-2">
-                   <button onClick={() => toggleAppStatus(selectedApplicant.id, selectedApplicant.status, 'accepted')} className={`p-3 rounded-xl border-2 border-slate-900 transition-colors ${selectedApplicant.status === 'accepted' ? 'bg-green-500 text-white' : 'bg-white text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title="Retenir"><ThumbsUp size={20}/></button>
-                   <button onClick={() => toggleAppStatus(selectedApplicant.id, selectedApplicant.status, 'rejected')} className={`p-3 rounded-xl border-2 border-slate-900 transition-colors ${selectedApplicant.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title="Refuser"><ThumbsDown size={20}/></button>
-                </div>
+                
+                {selectedApplicant.status !== 'purchased' && (
+                  <div className="flex justify-center gap-4 mb-2">
+                     <button onClick={() => toggleAppStatus(selectedApplicant.id, selectedApplicant.status, 'accepted')} className={`p-3 rounded-xl border-2 border-slate-900 transition-colors ${selectedApplicant.status === 'accepted' ? 'bg-blue-500 text-white' : 'bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title="Pré-sélectionner"><ThumbsUp size={20}/></button>
+                     <button onClick={() => toggleAppStatus(selectedApplicant.id, selectedApplicant.status, 'rejected')} className={`p-3 rounded-xl border-2 border-slate-900 transition-colors ${selectedApplicant.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-white text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title="Refuser"><ThumbsDown size={20}/></button>
+                  </div>
+                )}
 
-                <button onClick={() => toggleCart(selectedApplicant)} className={`w-full p-4 rounded-2xl font-black transition flex justify-center items-center shadow-lg border-2 border-slate-900 ${cart.some(c => c.id === selectedApplicant.id) ? 'bg-slate-900 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
-                  <ShoppingCart size={18} className="mr-2"/>
-                  {cart.some(c => c.id === selectedApplicant.id) ? 'Retirer du panier' : 'Ajouter au panier (37,50 €)'}
-                </button>
+                {selectedApplicant.status !== 'purchased' && (
+                  <>
+                    <button onClick={() => toggleCart(selectedApplicant)} className={`w-full p-4 rounded-2xl font-black transition flex justify-center items-center shadow-lg border-2 border-slate-900 ${cart.some(c => c.id === selectedApplicant.id) ? 'bg-slate-900 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                      <ShoppingCart size={18} className="mr-2"/>
+                      {cart.some(c => c.id === selectedApplicant.id) ? 'Retirer du panier' : 'Ajouter au panier (37,50 €)'}
+                    </button>
 
-                <button onClick={() => alert(`SIMULATION DÉBLOCAGE (37,50 €) :\nNom : ${selectedApplicant.first_name} ${selectedApplicant.last_name}\nNaissance : ${selectedApplicant.birth_date || 'Non renseigné'}\nTéléphone : ${selectedApplicant.phone || 'Non renseigné'}\nEmail : ${selectedApplicant.candidate_email}`)} className="w-full bg-green-500 text-white p-4 rounded-2xl font-black hover:bg-green-600 transition flex justify-center items-center shadow-lg border-2 border-slate-900">
-                  <Lock size={18} className="mr-2"/> Accéder aux coordonnées directes
-                </button>
+                    <button onClick={() => handleUnlockSingle(selectedApplicant)} className="w-full bg-green-500 text-white p-4 rounded-2xl font-black hover:bg-green-600 transition flex justify-center items-center shadow-lg border-2 border-slate-900">
+                      <Lock size={18} className="mr-2"/> Débloquer directement (37,50 €)
+                    </button>
+                  </>
+                )}
               </div>
 
             </div>
