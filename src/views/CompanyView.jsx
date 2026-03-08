@@ -68,7 +68,11 @@ export default function CompanyView() {
   };
 
   const fetchCompanyDashboard = async () => {
-    const { data } = await supabase.from('jobs').select(`*, applications (*)`).eq('company_id', currentCompany.id).order('is_active', { ascending: false }).order('start_date', { ascending: true });
+    const { data } = await supabase.from('jobs')
+      .select(`*, applications (*)`)
+      .eq('company_id', currentCompany.id)
+      .order('is_active', { ascending: false })
+      .order('start_date', { ascending: true });
     if (data) setJobs(data);
   };
 
@@ -428,6 +432,10 @@ export default function CompanyView() {
                 <button onClick={() => toggleCart(selectedApplicant)} className={`w-full p-4 rounded-2xl font-black transition flex justify-center items-center shadow-lg border-2 border-slate-900 ${cart.some(c => c.id === selectedApplicant.id) ? 'bg-slate-900 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
                   <ShoppingCart size={18} className="mr-2"/>
                   {cart.some(c => c.id === selectedApplicant.id) ? 'Retirer du panier' : 'Ajouter au panier (37,50 €)'}
+                </button>
+
+                <button onClick={() => alert(`SIMULATION DÉBLOCAGE (37,50 €) :\nNom : ${selectedApplicant.first_name} ${selectedApplicant.last_name}\nNaissance : ${selectedApplicant.birth_date || 'Non renseigné'}\nTéléphone : ${selectedApplicant.phone || 'Non renseigné'}\nEmail : ${selectedApplicant.candidate_email}`)} className="w-full bg-green-500 text-white p-4 rounded-2xl font-black hover:bg-green-600 transition flex justify-center items-center shadow-lg border-2 border-slate-900">
+                  <Lock size={18} className="mr-2"/> Accéder aux coordonnées directes
                 </button>
               </div>
 
